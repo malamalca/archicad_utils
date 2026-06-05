@@ -1,0 +1,27 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="16.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="D:\ArchicadDev\Addons\arUtils\Src\APICommon.c">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\ArchicadDev\Addons\arUtils\Src\arUtils.c">
+      <Filter>Sources</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="D:\ArchicadDev\Addons\arUtils\Src\APICommon.h">
+      <Filter>Sources</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\ArchicadDev\Addons\arUtils\Src\APIEnvir.h">
+      <Filter>Sources</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\ArchicadDev\Addons\arUtils\Src\ResourceIds.hpp">
+      <Filter>Sources</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="Sources">
+      <UniqueIdentifier>{04F88371-EC23-3895-B77F-0524A9387BAF}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

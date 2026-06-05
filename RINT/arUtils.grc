@@ -1,0 +1,36 @@
+﻿#include "ResourceIds.hpp"
+
+'STR#' ID_ADDON_INFO "Add-on Name and Description" {
+/* [  1] */		"arUtils"
+/* [  2] */		"arUtils :: Utils for ARHIM d.o.o."
+}
+
+'STR#' ID_MENU_MAIN "Menu strings" {
+/* [   ] */		"arUtils"
+/* [   ] */			"Polygon Tools"
+/* [  1] */			"Realign Polygon^E3^ES^EE^EI^ET^EM^EW"
+/* [  2] */			"Realign Polygon Node^E3^ES^EE^EI^ET^EM^EW^EL"
+}
+
+'STR#' ID_MENU_PROMPT_MAIN "Prompt strings" {
+/* [   ] */		"arUtils"
+/* [   ] */			"Polygon Tools"
+/* [  1] */			"Realign Polygon"
+/* [  2] */			"Realign Polygon Node"
+}
+
+'STR#' ID_MENU_MAIN2 "Menu strings" {
+/* [   ] */		"arUtils"
+/* [   ] */			"Element Tools"
+/* [  1] */			"Refresh Elements^EL"
+/* [  2] */			"Export Morph Faces"
+/* [  3] */			"Sync PHPures zones"
+}
+
+'STR#' ID_MENU_PROMPT_MAIN2 "Prompt strings" {
+/* [   ] */		"arUtils"
+/* [   ] */			"Element Tools"
+/* [  1] */			"Refresh Elements"
+/* [  2] */			"Export Morph Faces to TXT"
+/* [  3] */			"Sync PHPures zones"
+}

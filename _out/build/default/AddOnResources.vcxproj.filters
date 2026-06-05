@@ -1,0 +1,31 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="16.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <CustomBuild Include="D:\ArchicadDev\Addons\arUtils\out\build\default\CMakeFiles\ce500e6db1b8e4131d17305cd52447eb\AddOnResources.stamp.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="D:\ArchicadDev\Addons\arUtils\out\build\default\CMakeFiles\5297b67f88281378c935e89192aaa026\AddOnResources.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="D:\ArchicadDev\Addons\arUtils\RFIX.win\AddOnMain.rc2">
+      <Filter>Resources</Filter>
+    </None>
+    <None Include="D:\ArchicadDev\Addons\arUtils\RFIX\arUtilsFix.grc">
+      <Filter>Resources</Filter>
+    </None>
+    <None Include="D:\ArchicadDev\Addons\arUtils\RINT\arUtils.grc">
+      <Filter>Resources</Filter>
+    </None>
+    <None Include="D:\ArchicadDev\Addons\arUtils\out\build\default\CMakeFiles\AddOnResources" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="CMake Rules">
+      <UniqueIdentifier>{7A419149-84F3-3AB7-B9A7-50D74890D84A}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Resources">
+      <UniqueIdentifier>{8A9D94E7-AA7D-3C88-B1A2-715A6FC2C6EC}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

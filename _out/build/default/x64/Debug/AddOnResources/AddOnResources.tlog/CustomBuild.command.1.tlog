@@ -1,0 +1,22 @@
+^D:\ARCHICADDEV\ADDONS\ARUTILS\OUT\BUILD\DEFAULT\CMAKEFILES\CE500E6DB1B8E4131D17305CD52447EB\ADDONRESOURCES.STAMP.RULE
+setlocal
+"C:\Program Files (x86)\Microsoft Visual Studio\2019\BuildTools\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -E make_directory D:/ArchicadDev/Addons/arUtils/out/build/default/ResourceObjects
+if %errorlevel% neq 0 goto :cmEnd
+python3 "D:/ArchicadDev/GRAPHISOFT/API Development Kit 27.3001/Support/Tools/CompileResources.py" INT "D:/ArchicadDev/GRAPHISOFT/API Development Kit 27.3001" D:/ArchicadDev/Addons/arUtils/Src D:/ArchicadDev/Addons/arUtils D:/ArchicadDev/Addons/arUtils/out/build/default/ResourceObjects D:/ArchicadDev/Addons/arUtils/out/build/default/ResourceObjects/arUtils.res
+if %errorlevel% neq 0 goto :cmEnd
+"C:\Program Files (x86)\Microsoft Visual Studio\2019\BuildTools\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -E touch D:/ArchicadDev/Addons/arUtils/out/build/default/ResourceObjects/AddOnResources.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd
+^D:\ARCHICADDEV\ADDONS\ARUTILS\OUT\BUILD\DEFAULT\CMAKEFILES\5297B67F88281378C935E89192AAA026\ADDONRESOURCES.RULE
+setlocal
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd

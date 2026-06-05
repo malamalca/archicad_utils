@@ -1,0 +1,15 @@
+//nclude "DGDefs.h"
+
+/*---- This file was created by GRC compiler --------------------------------------------*/
+/*                                                                                       */
+/*     Source file: D:\ArchicadDev\Addons\arUtils\out\build\default\ResourceObjects\arUtilsFix.grc.i        Code table: NUL              */
+/*                                                                                       */
+/*---- Version 2.0 - Windows ------------------------------ (c) 1996-2023 by Graphisoft -*/
+
+32500 MDID
+BEGIN
+	8, 0,
+	0L + 1211329892,
+	0L + 4173360044
+END
+
