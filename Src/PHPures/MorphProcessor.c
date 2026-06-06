@@ -67,7 +67,7 @@ GSErrCode ProcessMorphElements(GS::HashTable<GS::UniString, MorphFaceData>& morp
         GS::UniString idKonstrukcije, idOknaVrata, idElementaVgradnje;
         GS::UniString orientacija, naklon, delezOkvirja, dolzinaStekla;
         
-        bool hasIdKonstrukcije = GetElementPropertyValue(morphGuid, "ID Konstrukcije", idKonstrukcije);
+        GetElementPropertyValue(morphGuid, "ID Konstrukcije", idKonstrukcije);
         bool hasIdOknaVrata = GetElementPropertyValue(morphGuid, "ID OknaVrata", idOknaVrata);
         bool hasIdElementaVgradnje = GetElementPropertyValue(morphGuid, "ID Elementa vgradnje", idElementaVgradnje);
         bool hasOrientacija = GetElementPropertyValue(morphGuid, "Orientacija", orientacija);

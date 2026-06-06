@@ -179,7 +179,7 @@ void SortVerticesCounterClockwise(std::vector<API_Coord3D>& vertices)
 }
 
 // Write vertices to text file with hole information
-void WriteVerticesToFile(const std::vector<FaceData>& allFaces, const std::vector<Modeler::VertexId>& vertexIds)
+void WriteVerticesToFile(const std::vector<FaceData>& allFaces, const std::vector<Modeler::VertexId>& /*vertexIds*/)
 {
     // Get desktop path or use temp directory
     IO::Location folderLoc;

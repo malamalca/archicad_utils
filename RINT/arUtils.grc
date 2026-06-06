@@ -25,6 +25,7 @@
 /* [  1] */			"Refresh Elements^EL"
 /* [  2] */			"Export Morph Faces"
 /* [  3] */			"Sync PHPures zones"
+/* [  4] */			"Calculate Insolation^E3^ES^EE^EI^ET^EM^EW"
 }
 
 'STR#' ID_MENU_PROMPT_MAIN2 "Prompt strings" {
@@ -33,4 +34,5 @@
 /* [  1] */			"Refresh Elements"
 /* [  2] */			"Export Morph Faces to TXT"
 /* [  3] */			"Sync PHPures zones"
+/* [  4] */			"Calculate Insolation"
 }

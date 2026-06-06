@@ -10,11 +10,13 @@
 #include	"APIEnvir.h"
 #include	"ACAPinc.h"					// also includes APIdefs.h
 #include	"ACAPI_Goodies.h"
+#include	"ACAPI_Environment.h"
 #include	"DG.h"
 #include	"ResourceIds.hpp"
 #include	"APICommon.h"
 #include	"arExportMorphFaces.h"
 #include	"arPHPures.h"
+#include	"SolarAnalysis.hpp"
 
 const double ALIGN_PRECISION = 1000;
 
@@ -240,7 +242,6 @@ void arRealignPolygon()
 					tmpMemo.meshPolyZ = memo.meshPolyZ;
 
 					err = ACAPI_CallUndoableCommand ("Element Test API Function", [&element, &tmpMemo] () -> GSErrCode {
-						UInt32 mask = APIMemoMask_Polygon;
 						return ACAPI_Element_ChangeMemo (element.header.guid, APIMemoMask_All, &tmpMemo);
 						//return ACAPI_Element_Change(element, 0, tmpMemo, APIMemoMask_All, true);
 					});
@@ -285,6 +286,26 @@ GSErrCode MenuCommandHandler (const API_MenuParams *menuParams)
 				case 3:
 					SyncPhpuresZones();
 					break;
+				case 4:
+				{
+					// Fetch lat/lon from project Geo Location settings (AC29 API)
+					API_GeoLocation geoLocation = {};
+					GSErrCode geoErr = ACAPI_GeoLocation_GetGeoLocation(&geoLocation);
+					if (geoErr != NoError) {
+						DGAlert(DG_WARNING, "Solar Analysis",
+							"Could not read project geolocation.\nPlease set it in Project > Location.",
+							"", "OK");
+						break;
+					}
+
+					RunSolarAnalysis(
+						"SolarSensor 26",           // libpart name to search for
+						geoLocation.placeInfo.latitude,   // already in degrees
+						geoLocation.placeInfo.longitude,
+						1.0                         // UTC+1 (CET)
+					);
+					break;
+				}
 			}
 			break;
 	}

@@ -74,18 +74,18 @@ static void ProcessNonTransparentConstruction(
     bool foundMatch = false;
     
     for (const auto& pair : morphDataMap) {
-        const MorphFaceData* data = pair.value;
+        const MorphFaceData& data = pair.value;
         // Match by zone ID and construction ID
-        if (!data->isTransparent && data->zoneId == jsonZoneId && data->id == zoneId) {
-            totalArea += data->povrsina * data->stevilo;
-            totalCount += data->stevilo;
+        if (!data.isTransparent && data.zoneId == jsonZoneId && data.id == zoneId) {
+            totalArea += data.povrsina * data.stevilo;
+            totalCount += data.stevilo;
             if (!foundMatch) {
-                orientation = data->orientacija;
-                slope = data->naklon;
+                orientation = data.orientacija;
+                slope = data.naklon;
                 foundMatch = true;
             }
             // Mark this specific entry as processed using the full morphDataMap key
-            processedMorphIds.Add(GetMorphDataKey(*data));
+            processedMorphIds.Add(GetMorphDataKey(data));
         }
     }
     
@@ -243,27 +243,27 @@ static void ProcessTransparentConstruction(
     bool foundMatch = false;
     
     for (const auto& pair : morphDataMap) {
-        const MorphFaceData* data = pair.value;
+        const MorphFaceData& data = pair.value;
         // Match by zone ID, construction ID, AND idElementaVgradnje to avoid combining different elements
         // Check if idElementaVgradnje matches (or both empty/undefined)
         bool idElementaMatches = false;
-        if (oldIdElementaVgradnje.IsEmpty() && (!data->hasIdElementaVgradnje || data->idElementaVgradnje.IsEmpty())) {
+        if (oldIdElementaVgradnje.IsEmpty() && (!data.hasIdElementaVgradnje || data.idElementaVgradnje.IsEmpty())) {
             idElementaMatches = true; // Both empty
-        } else if (data->hasIdElementaVgradnje && data->idElementaVgradnje == oldIdElementaVgradnje) {
+        } else if (data.hasIdElementaVgradnje && data.idElementaVgradnje == oldIdElementaVgradnje) {
             idElementaMatches = true; // Both match
         }
         
-        if (data->isTransparent && data->zoneId == jsonZoneId && data->id == zoneId && idElementaMatches) {
-            sumArea += data->povrsina * data->stevilo;
-            totalCount += data->stevilo;
+        if (data.isTransparent && data.zoneId == jsonZoneId && data.id == zoneId && idElementaMatches) {
+            sumArea += data.povrsina * data.stevilo;
+            totalCount += data.stevilo;
             if (!foundMatch) {
-                framePercentage = data->delezOkvirja;
-                elementVgradnje = data->idElementaVgradnje;
-                dolzinaSteklaValue = data->dolzinaStekla;
+                framePercentage = data.delezOkvirja;
+                elementVgradnje = data.idElementaVgradnje;
+                dolzinaSteklaValue = data.dolzinaStekla;
                 foundMatch = true;
             }
             // Mark this specific entry as processed using the full morphDataMap key
-            processedMorphIds.Add(GetMorphDataKey(*data));
+            processedMorphIds.Add(GetMorphDataKey(data));
         }
     }
     
@@ -469,8 +469,8 @@ GSErrCode AddNewMorphsToJson(
     
     // Check each morphDataMap entry using its full key
     for (const auto& pair : morphDataMap) {
-        const MorphFaceData* data = pair.value;
-        GS::UniString fullKey = GetMorphDataKey(*data);
+        const MorphFaceData& data = pair.value;
+        GS::UniString fullKey = GetMorphDataKey(data);
         
         if (!processedMorphIds.Contains(fullKey)) {
             newMorphKeys.Push(fullKey);
