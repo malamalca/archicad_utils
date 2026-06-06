@@ -12,9 +12,16 @@ extern "C" {
  * ────────────────
  * Finds all placed objects matching `libpartName`, computes monthly
  * solar exposure (direct sunlight minutes on the 21st of each month)
- * at each object's location via ray-casting against the 3D scene mesh,
- * and writes the 12-month result into the GDL array parameter
- * "solarization" on every matched element.
+ * at each grid point via ray-casting against the 3D scene mesh.
+ *
+ * Each sensor element is divided into divisionsX × divisionsY squares
+ * (read from GDL parameters A, B, divisionsX, divisionsY). The center
+ * of each square is analyzed independently. If divisionsX/divisionsY
+ * are not found, defaults to 1×1 (single-point analysis).
+ *
+ * Results are written into the GDL array parameter "solarization" as
+ * a flat 1D array of nSquares × 12 values (row-major order:
+ * square(0,0) months[1..12], square(0,1) months[1..12], ...).
  *
  * Parameters:
  *   libpartName      - GDL object name to search for (case-insensitive)

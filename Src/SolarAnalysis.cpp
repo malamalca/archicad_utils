@@ -32,6 +32,7 @@
 #include <string>
 #include <optional>
 #include <limits>
+#include <algorithm>
 #include <cstring>
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -171,35 +172,23 @@ static Mesh buildSceneMesh()
 {
     Mesh mesh;
 
-    // Save current database and switch to 3D Model
-    API_WindowInfo savedDB = {};
+    // Save current database
+    API_DatabaseInfo savedDB = {};
+    BNZeroMemory(&savedDB, sizeof(savedDB));
     GSErrCode err = ACAPI_Database_GetCurrentDatabase(&savedDB);
 
-    API_DatabaseInfo planDB = {};
-    BNZeroMemory(&planDB, sizeof(planDB));
-    planDB.typeID = APIWind_3DModelID;
-    err = ACAPI_Database_ChangeCurrentDatabase(&planDB);
-    // DBPrintf("    buildSceneMesh: changeDB to 3DModel err=%d\n", err);
-
-    // Bring 3D window to front
-    API_WindowInfo windowInfo = {};
-    BNZeroMemory(&windowInfo, sizeof(windowInfo));
-    windowInfo.typeID = APIWind_3DModelID;
-    windowInfo.databaseUnId = planDB.databaseUnId;
-    err = ACAPI_Window_ChangeWindow(&windowInfo);
-    // DBPrintf("    buildSceneMesh: changeWindow to 3D err=%d\n", err);
-
-    // Rebuild with regenerate
-    if (err == NoError) {
-        bool isRebuild = true;
-        err = ACAPI_View_Rebuild(&isRebuild);
-        // DBPrintf("    buildSceneMesh: View_Rebuild err=%d\n", err);
+    // Switch to 3D Model database if needed
+    bool needsRestore = (savedDB.typeID != APIWind_3DModelID);
+    if (needsRestore) {
+        API_DatabaseInfo db3D = {};
+        BNZeroMemory(&db3D, sizeof(db3D));
+        db3D.typeID = APIWind_3DModelID;
+        err = ACAPI_Database_ChangeCurrentDatabase(&db3D);
     }
 
     // Select sight (nullptr = use current 3D window's sight)
     void* origSight = nullptr;
     err = ACAPI_Sight_SelectSight(nullptr, &origSight);
-    // DBPrintf("    buildSceneMesh: SelectSight(nullptr) err=%d\n", err);
 
     // Check body count
     { Int32 bc = 0; ACAPI_ModelAccess_GetNum(API_BodyID, &bc);
@@ -310,9 +299,11 @@ static Mesh buildSceneMesh()
         }
     }
 
-    // Restore database
-    ACAPI_Database_ChangeCurrentDatabase(&savedDB);
-    DBPrintf("    buildSceneMesh: extracted %d triangles (Legacy), restored DB\n", (Int32)mesh.triangles.size());
+    // Restore original database (only if we switched)
+    if (needsRestore) {
+        ACAPI_Database_ChangeCurrentDatabase(&savedDB);
+    }
+    DBPrintf("    buildSceneMesh: extracted %d triangles\n", static_cast<int>(mesh.triangles.size()));
     return mesh;
 }
 
@@ -389,20 +380,56 @@ static std::optional<Vec3> getElementLocation(const API_Guid& guid)
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
+// 6.5 READ GDL PARAMETER VALUE FROM ELEMENT MEMO
+// ═════════════════════════════════════════════════════════════════════════════
+
+static std::optional<double> getParamValue(const API_Guid& guid, const char* paramName)
+{
+    API_ElementMemo memo = {};
+    GSErrCode err = ACAPI_Element_GetMemo(guid, &memo, APIMemoMask_AddPars);
+    if (err != NoError || memo.params == nullptr || *memo.params == nullptr) {
+        DBPrintf("      getParamValue('%s'): GetMemo failed (err=%d)\n", paramName, err);
+        ACAPI_DisposeElemMemoHdls(&memo);
+        return std::nullopt;
+    }
+
+    UInt32 totalParams = BMGetHandleSize((GSConstHandle)memo.params) / sizeof(API_AddParType);
+    for (UInt32 i = 0; i < totalParams; ++i) {
+        API_AddParType& param = (*memo.params)[static_cast<Int32>(i)];
+        if (strncmp(param.name, paramName, API_NameLen) == 0) {
+            double val = param.value.real;
+            DBPrintf("      getParamValue('%s') = %.4f\n", paramName, val);
+            ACAPI_DisposeElemMemoHdls(&memo);
+            return val;
+        }
+    }
+
+    DBPrintf("      getParamValue('%s'): NOT FOUND (scanned %d params)\n", paramName, totalParams);
+    ACAPI_DisposeElemMemoHdls(&memo);
+    return std::nullopt;
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
 // 7. WRITE PARAMETER ARRAY TO ELEMENT (AC29 API)
 //    Uses OpenParameters → ChangeAParameter cycle
+//    Supports variable-size 1D array (nSquares * 12 values)
 // ═════════════════════════════════════════════════════════════════════════════
 
 static GSErrCode writeSolarizationParam(
-    const API_Guid&              guid,
-    Int32                        /*libInd*/,
-    const std::array<double,12>& minutesPerMonth)
+    const API_Guid&   guid,
+    Int32             /*libInd*/,
+    const std::vector<double>& values)  // 1D array: nSquares * 12
 {
+    DBPrintf("      >>> writeSolarizationParam: %d values to write\n", static_cast<int>(values.size()));
+
     // Get element data
     API_Element elem = {};
     elem.header.guid = guid;
     GSErrCode err = ACAPI_Element_Get(&elem, 0);
-    if (err != NoError) return err;
+    if (err != NoError) {
+        DBPrintf("      writeSolarization: Element_Get failed err=%d\n", err);
+        return err;
+    }
 
     // Get memo handles (includes params)
     API_ElementMemo memo = {};
@@ -415,19 +442,19 @@ static GSErrCode writeSolarizationParam(
 
     // Find 'solarization' parameter in memo.params and write values
     bool found = false;
+    Int32 newSize = static_cast<Int32>(values.size());
     if (memo.params != nullptr && *memo.params != nullptr) {
         UInt32 totalParams = BMGetHandleSize((GSConstHandle)memo.params) / sizeof(API_AddParType);
-        DBPrintf("      writeSolarization: param count=%d\n", totalParams);
+        DBPrintf("      writeSolarization: param count=%d, writing %d values\n", totalParams, newSize);
 
         for (UInt32 i = 0; i < totalParams; ++i) {
             API_AddParType& param = (*memo.params)[static_cast<Int32>(i)];
             if (strncmp(param.name, "solarization", API_NameLen) == 0) {
-                // DBPrintf("      writeSolarization: found '%s' dim1=%d typeID=%d\n",
-                //          param.name, param.dim1, param.typeID);
+                DBPrintf("      writeSolarization: found 'solarization' oldDim1=%d -> newDim1=%d\n",
+                         param.dim1, newSize);
                 found = true;
 
-                // Resize array if needed (12 values)
-                Int32 newSize = 12;
+                // Resize array if needed (check current dimension)
                 param.dim1 = newSize;
 
                 param.value.array = BMReallocHandle(param.value.array,
@@ -436,10 +463,19 @@ static GSErrCode writeSolarizationParam(
 
                 if (param.value.array != nullptr && *param.value.array != nullptr) {
                     double* arr = reinterpret_cast<double*>(*param.value.array);
-                    for (int m = 0; m < 12; ++m) {
-                        arr[m] = minutesPerMonth[m];
-                        // DBPrintf("      writeSolarization: [.*]);
+                    for (Int32 idx = 0; idx < newSize; ++idx) {
+                        arr[idx] = values[static_cast<size_t>(idx)];
                     }
+                    // Log first few and last few values
+                    Int32 logCount = std::min(newSize, 6);
+                    DBPrintf("      writeSolarization: values[0..%d] = ", logCount - 1);
+                    for (Int32 idx = 0; idx < logCount; ++idx) {
+                        if (idx > 0) DBPrintf(", ");
+                        DBPrintf("%.1f", arr[idx]);
+                    }
+                    DBPrintf(" ...\n");
+                } else {
+                    DBPrintf("      writeSolarization: ERROR: realloc failed!\n");
                 }
                 break;
             }
@@ -455,7 +491,8 @@ static GSErrCode writeSolarizationParam(
     API_Element mask = {};
     BNZeroMemory(&mask, sizeof(mask));
     err = ACAPI_Element_Change(&elem, &mask, &memo, APIMemoMask_AddPars, true);
-    DBPrintf("      writeSolarization: Element_Change err=%d\n", err);
+    DBPrintf("      writeSolarization: Element_Change err=%d %s\n",
+             err, (found ? "(param found)" : "(param NOT found — values not written!)"));
 
     ACAPI_DisposeElemMemoHdls(&memo);
     return err;
@@ -671,7 +708,7 @@ GSErrCode RunSolarAnalysis(
     DBPrintf("  [3] starting undoable command...\n");
 
     // Collect analysis results, then write params inside undoable command
-    struct AnalysisResult { API_Guid guid; Int32 libInd; std::array<double,12> minutes; };
+    struct AnalysisResult { API_Guid guid; Int32 libInd; std::vector<double> values; };
     std::vector<AnalysisResult> results;
 
     for (const API_Guid& guid : targets) {
@@ -682,30 +719,109 @@ GSErrCode RunSolarAnalysis(
         auto loc = getElementLocation(guid);
         if (!loc) continue;
 
-        Vec3 sensorPoint = { loc->x, loc->y, loc->z };
-        DBPrintf("    sensor=(%f,%f,%f) sceneTris=%d lat=%.1f lon=%.1f\n",
-                 sensorPoint.x, sensorPoint.y, sensorPoint.z,
-                 (int)scene.triangles.size(), latitudeDeg, longitudeDeg);
+        // Read GDL parameters: divisionsX, divisionsY, A, B, rotation
+        DBPrintf("    --- reading sensor params ---\n");
+        auto divXOpt   = getParamValue(guid, "divisionsX");
+        auto divYOpt   = getParamValue(guid, "divisionsY");
+        auto aOpt      = getParamValue(guid, "A");
+        auto bOpt      = getParamValue(guid, "B");
+        auto rotOpt    = getParamValue(guid, "tilt_angle");
 
-        std::array<double,12> minutes = analyzeSolarization(
-            sensorPoint, scene, latitudeDeg, longitudeDeg, utcOffsetHours);
+        int divisionsX = divXOpt ? static_cast<int>(std::round(*divXOpt)) : 1;
+        int divisionsY = divYOpt ? static_cast<int>(std::round(*divYOpt)) : 1;
+        double sensorA = aOpt ? *aOpt : 1.0;   // fallback 1m if not found
+        double sensorB = bOpt ? *bOpt : 1.0;
+        double rotDeg  = rotOpt ? *rotOpt : 0.0;
 
-        DBPrintf("    solarization: ");
-        for (int m = 0; m < 12; ++m) {
-            if (m > 0) DBPrintf(",");
-            DBPrintf("%d", static_cast<int>(minutes[m]));
+        // Clamp divisions to reasonable range
+        if (divisionsX < 1) divisionsX = 1;
+        if (divisionsY < 1) divisionsY = 1;
+        // Clamp rotation 0..90
+        if (rotDeg < 0.0) rotDeg = 0.0;
+        if (rotDeg > 90.0) rotDeg = 90.0;
+
+        int nSquares = divisionsX * divisionsY;
+        double cellW = sensorA / divisionsX;
+        double cellH = sensorB / divisionsY;
+
+        double startX = loc->x - sensorA / 2.0;
+        double startY = loc->y - sensorB / 2.0;
+
+        // Rotation: around X-axis through bottom edge (Y=startY, Z=loc.z)
+        //   0° = flat on floor, 90° = vertical wall
+        double rotRad = rotDeg * DEG_TO_RAD;
+        double cosR   = std::cos(rotRad);
+        double sinR   = std::sin(rotRad);
+
+        DBPrintf("    sensor center=(%.4f, %.4f, %.4f)\n", loc->x, loc->y, loc->z);
+        DBPrintf("    sensor dims: A=%.4f B=%.4f  divisions: %dx%d  squares=%d\n",
+                 sensorA, sensorB, divisionsX, divisionsY, nSquares);
+        DBPrintf("    cell size: %.4f x %.4f\n", cellW, cellH);
+        DBPrintf("    rotation: %.1f° (cos=%.4f sin=%.4f) pivot Y=%.4f Z=%.4f\n",
+                 rotDeg, cosR, sinR, startY, loc->z);
+        DBPrintf("    grid bounds (flat): X=[%.4f .. %.4f]  Y=[%.4f .. %.4f]\n",
+                 startX, startX + sensorA, startY, startY + sensorB);
+
+        // Compute grid center points and analyze each
+        // Grid spans from (loc.x - A/2, loc.y - B/2) to (loc.x + A/2, loc.y + B/2)
+        std::vector<double> allValues;  // flat: nSquares * 12
+        allValues.reserve(static_cast<size_t>(nSquares) * 12);
+
+        int squareIdx = 0;
+        for (int iy = 0; iy < divisionsY; ++iy) {
+            for (int ix = 0; ix < divisionsX; ++ix) {
+                // Flat center of square (ix, iy)
+                double flatX = startX + cellW * (ix + 0.5);
+                double distFromPivot = cellH * (iy + 0.5);  // distance from bottom edge
+
+                // Apply rotation around X-axis through bottom edge:
+                //   X unchanged
+                //   Y = startY + distFromPivot * cos(rotation)
+                //   Z = loc.z   + distFromPivot * sin(rotation)
+                Vec3 point{
+                    flatX,
+                    startY + distFromPivot * cosR,
+                    loc->z   + distFromPivot * sinR
+                };
+
+                DBPrintf("    square[%d/%d] (%d,%d): dist=%.4f center=(%.4f, %.4f, %.4f)\n",
+                         squareIdx + 1, nSquares, ix, iy,
+                         distFromPivot, point.x, point.y, point.z);
+
+                std::array<double,12> minutes = analyzeSolarization(
+                    point, scene, latitudeDeg, longitudeDeg, utcOffsetHours);
+
+                // Log per-square results summary
+                int totalMin = 0;
+                for (int m = 0; m < 12; ++m) {
+                    totalMin += static_cast<int>(minutes[m]);
+                }
+                DBPrintf("      square[%d] result: ", squareIdx);
+                for (int m = 0; m < 12; ++m) {
+                    if (m > 0) DBPrintf(", ");
+                    DBPrintf("%d", static_cast<int>(minutes[m]));
+                }
+                DBPrintf("  (total=%dmin)\n", totalMin);
+
+                for (int m = 0; m < 12; ++m) {
+                    allValues.push_back(minutes[m]);
+                }
+                squareIdx++;
+            }
         }
-        DBPrintf("\n");
 
-        results.push_back({guid, elem.object.libInd, minutes});
+        DBPrintf("    --- sensor complete: %d values collected (%dx12 grid, %zu bytes) ---\n",
+                 nSquares * 12, nSquares, allValues.size() * sizeof(double));
+        results.push_back({guid, elem.object.libInd, std::move(allValues)});
     }
 
     // Write parameters inside undoable command (Element_Change requires it)
     GSErrCode err = ACAPI_CallUndoableCommand(commandName, [&]() -> GSErrCode {
         for (const auto& res : results) {
-            DBPrintf("  [4] writing params for element %zu/%zd\n",
-                     &res - results.data() + 1, results.size());
-            GSErrCode writeErr = writeSolarizationParam(res.guid, res.libInd, res.minutes);
+            DBPrintf("  [4] writing params for element %zu/%zd (%d values)\n",
+                     &res - results.data() + 1, results.size(),
+                     static_cast<int>(res.values.size()));
+            GSErrCode writeErr = writeSolarizationParam(res.guid, res.libInd, res.values);
             if (writeErr != NoError) {
                 DBPrintf("    WARN: write failed err=%d\n", writeErr);
                 return writeErr;
