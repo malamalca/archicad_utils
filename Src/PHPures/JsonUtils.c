@@ -32,9 +32,13 @@ GSErrCode ReadJsonFile(const GS::UniString& filePath, JSON::ValueRef& parsedValu
         return err;
     }
     
-    jsonFile.ReadBin(buffer.GetContent(), (USize)fileSize);
+    err = jsonFile.ReadBin(buffer.GetContent(), (USize)fileSize);
     jsonFile.Close();
-    
+    if (err != NoError) {
+        ACAPI_WriteReport("Failed to read zone file contents", true);
+        return err;
+    }
+
     // Parse JSON
     try {
         GS::MemoryIBinaryChannel input(buffer.GetContent(), (USize)fileSize);

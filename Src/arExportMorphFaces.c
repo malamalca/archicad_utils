@@ -38,8 +38,6 @@ GSErrCode ExportMorphFaces()
     // Store all face data
     std::vector<FaceData> allFaces;
 
-    std::vector<Modeler::VertexId> vertexIds;
-    
     // Process each selected element
     for (const API_Neig& neig : selNeigs) {
         if (neig.neigID != APINeig_None) {
@@ -116,7 +114,7 @@ GSErrCode ExportMorphFaces()
     
     // Write to file
     if (!allFaces.empty()) {
-        WriteVerticesToFile(allFaces, vertexIds);
+        WriteVerticesToFile(allFaces);
         
         std::stringstream msg;
         msg << "Successfully exported " << allFaces.size() << " morph face(s)";
@@ -128,58 +126,8 @@ GSErrCode ExportMorphFaces()
     return NoError;
 }
 
-// Sort vertices counter-clockwise in the polygon's actual plane
-void SortVerticesCounterClockwise(std::vector<API_Coord3D>& vertices)
-{
-    if (vertices.size() < 3) return;
-
-    // Compute polygon normal from first 3 vertices
-    double ux = vertices[1].x - vertices[0].x;
-    double uy = vertices[1].y - vertices[0].y;
-    double uz = vertices[1].z - vertices[0].z;
-    double vx = vertices[2].x - vertices[0].x;
-    double vy = vertices[2].y - vertices[0].y;
-    double vz = vertices[2].z - vertices[0].z;
-    
-    double nx = uy*vz - uz*vy;
-    double ny = uz*vx - ux*vz;
-    double nz = ux*vy - uy*vx;
-    
-    // Determine dominant axis
-    double ax = std::abs(nx), ay = std::abs(ny), az = std::abs(nz);
-    
-    // Compute centroid
-    double cx = 0.0, cy = 0.0, cz = 0.0;
-    for (const auto& v : vertices) { cx += v.x; cy += v.y; cz += v.z; }
-    cx /= vertices.size(); cy /= vertices.size(); cz /= vertices.size();
-
-    // Sort by angle in the appropriate plane
-    if (ax >= ay && ax >= az) {
-        // Project to YZ plane
-        std::sort(vertices.begin(), vertices.end(), [&](const API_Coord3D& a, const API_Coord3D& b) {
-            double angA = atan2(a.z - cz, a.y - cy);
-            double angB = atan2(b.z - cz, b.y - cy);
-            return (nx > 0) ? (angA < angB) : (angA > angB);
-        });
-    } else if (ay >= ax && ay >= az) {
-        // Project to XZ plane
-        std::sort(vertices.begin(), vertices.end(), [&](const API_Coord3D& a, const API_Coord3D& b) {
-            double angA = atan2(a.z - cz, a.x - cx);
-            double angB = atan2(b.z - cz, b.x - cx);
-            return (ny > 0) ? (angA < angB) : (angA > angB);
-        });
-    } else {
-        // Project to XY plane
-        std::sort(vertices.begin(), vertices.end(), [&](const API_Coord3D& a, const API_Coord3D& b) {
-            double angA = atan2(a.y - cy, a.x - cx);
-            double angB = atan2(b.y - cy, b.x - cx);
-            return (nz > 0) ? (angA < angB) : (angA > angB);
-        });
-    }
-}
-
 // Write vertices to text file with hole information
-void WriteVerticesToFile(const std::vector<FaceData>& allFaces, const std::vector<Modeler::VertexId>& /*vertexIds*/)
+void WriteVerticesToFile(const std::vector<FaceData>& allFaces)
 {
     // Get desktop path or use temp directory
     IO::Location folderLoc;

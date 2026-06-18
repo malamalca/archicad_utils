@@ -3,7 +3,7 @@
 #include "APICommon.h"
 #include "DG.h"
 
-#include "arPhPures.h"
+#include "arPHPures.h"
 
 // PHPures library modules
 #include "PHPures/PropertyUtils.h"
@@ -50,8 +50,9 @@ GSErrCode SyncPhpuresZones()
     GS::HashTable<GS::UniString, MorphFaceData> morphDataMap;
     int totalFaces = 0;
     int morphsWithProperties = 0;
-    
-    err = ProcessMorphElements(morphDataMap, totalFaces, morphsWithProperties);
+    GS::Array<GS::UniString> idMismatchWarnings;
+
+    err = ProcessMorphElements(morphDataMap, totalFaces, morphsWithProperties, idMismatchWarnings);
     if (err != NoError) {
         return err;
     }
@@ -89,7 +90,7 @@ GSErrCode SyncPhpuresZones()
     }
     
     // Step 7: Generate comprehensive change report
-    GenerateChangeReport(changeReports, missingMorphIds, missingZoneWarnings);
+    GenerateChangeReport(changeReports, missingMorphIds, missingZoneWarnings, idMismatchWarnings);
     
     // Step 8: Write updated JSON back to file
     ACAPI_WriteReport("STEP 8: Writing JSON file...", false);
@@ -118,7 +119,56 @@ GSErrCode SyncPhpuresZones()
     ACAPI_WriteReport("", false);
     ACAPI_WriteReport("=== SyncPhpuresZones Completed Successfully ===", false);
     ACAPI_WriteReport("Zone file updated: %s", false, zoneFilePath.ToCStr().Get());
-    ACAPI_WriteReport("Total unique morph faces processed: %d", false, morphDataMap.GetSize());
-    
+    ACAPI_WriteReport("Total unique morph faces processed: %d", false, (int)morphDataMap.GetSize());
+
+    // Step 9: Show completion summary with a description of the changes made
+    int changedCount = 0;
+    int unchangedCount = 0;
+    GS::UniString changedList;
+    int listedCount = 0;
+    for (const ChangeReport& report : changeReports) {
+        if (report.hasChanges) {
+            changedCount++;
+            if (listedCount < 15) {
+                changedList += "  - " + report.id +
+                               (report.isTransparent ? " (transparent)" : " (non-transparent)") + "\n";
+                listedCount++;
+            }
+        } else {
+            unchangedCount++;
+        }
+    }
+
+    GS::UniString summary = GS::UniString::Printf(
+        "Synchronization completed successfully.\n\n"
+        "Elements changed/added: %d\n"
+        "Elements unchanged: %d\n",
+        changedCount, unchangedCount);
+
+    if (!missingMorphIds.IsEmpty()) {
+        summary += GS::UniString::Printf("IDs in JSON without a linked morph: %d\n",
+                                         (int)missingMorphIds.GetSize());
+    }
+    if (!missingZoneWarnings.IsEmpty()) {
+        summary += GS::UniString::Printf("New morphs whose zone was not found: %d\n",
+                                         (int)missingZoneWarnings.GetSize());
+    }
+    if (!idMismatchWarnings.IsEmpty()) {
+        summary += GS::UniString::Printf("IDs shared by non-identical elements: %d\n",
+                                         (int)idMismatchWarnings.GetSize());
+    }
+
+    if (changedCount > 0) {
+        summary += "\nChanged/added elements:\n" + changedList;
+        if (changedCount > listedCount) {
+            summary += GS::UniString::Printf("  ... and %d more (see Report window)\n",
+                                             changedCount - listedCount);
+        }
+    }
+
+    summary += GS::UniString::Printf("\nZone file updated:\n%s", zoneFilePath.ToCStr().Get());
+
+    DGAlert(DG_INFORMATION, "PHPures Sync", summary, "", "OK");
+
     return NoError;
 }

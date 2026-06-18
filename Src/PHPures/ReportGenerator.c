@@ -6,7 +6,8 @@
 void GenerateChangeReport(
     const GS::Array<ChangeReport>& changeReports,
     const GS::Array<GS::UniString>& missingMorphIds,
-    const GS::Array<GS::UniString>& missingZoneWarnings)
+    const GS::Array<GS::UniString>& missingZoneWarnings,
+    const GS::Array<GS::UniString>& idMismatchWarnings)
 {
     ACAPI_WriteReport("", false);
     ACAPI_WriteReport("========================================", false);
@@ -26,10 +27,15 @@ void GenerateChangeReport(
                             report.isTransparent ? "Transparent" : "Non-transparent");
             
             if (std::abs(report.oldPovrsina - report.newPovrsina) > 0.001) {
-                ACAPI_WriteReport("  povrsina: %.2f m² -> %.2f m²", false, 
+                ACAPI_WriteReport("  povrsina: %.2f m² -> %.2f m²", false,
                                 report.oldPovrsina, report.newPovrsina);
             }
-            
+
+            if (report.hadObsegField && std::abs(report.oldObseg - report.newObseg) > 0.001) {
+                ACAPI_WriteReport("  obseg: %.2f m -> %.2f m", false,
+                                report.oldObseg, report.newObseg);
+            }
+
             if (report.oldStevilo != report.newStevilo && (report.newStevilo > 1 || report.hadSteviloField)) {
                 ACAPI_WriteReport("  stevilo: %d -> %d", false, 
                                 report.oldStevilo, report.newStevilo);
@@ -74,6 +80,27 @@ void GenerateChangeReport(
     ACAPI_WriteReport("  Elements unchanged: %d", false, unchangedCount);
     ACAPI_WriteReport("", false);
     
+    // Report IDs shared by elements that are not really the same
+    if (!idMismatchWarnings.IsEmpty()) {
+        ACAPI_WriteReport("WARNING: IDs shared by elements with different parameter values:", true);
+        for (const auto& warning : idMismatchWarnings) {
+            ACAPI_WriteReport("  - %s", true, warning.ToCStr().Get());
+        }
+        ACAPI_WriteReport("", false);
+
+        // Show in dialog
+        GS::UniString dialogMsg = "The following IDs are used by elements that are NOT identical "
+                                  "(they share an ID but differ in area or construction parameters):\n\n";
+        for (USize i = 0; i < idMismatchWarnings.GetSize() && i < 10; i++) {
+            dialogMsg += "  - " + idMismatchWarnings[i] + "\n";
+        }
+        if (idMismatchWarnings.GetSize() > 10) {
+            dialogMsg += GS::UniString::Printf("\n... and %d more (see Report window for full list)",
+                                              (int)(idMismatchWarnings.GetSize() - 10));
+        }
+        DGAlert(DG_WARNING, "Inconsistent Element IDs", dialogMsg, "", "OK");
+    }
+
     // Report missing zones for new morphs
     if (!missingZoneWarnings.IsEmpty()) {
         ACAPI_WriteReport("WARNINGS: Zones not found for new morphs:", false);

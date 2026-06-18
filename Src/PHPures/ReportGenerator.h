@@ -9,6 +9,7 @@
 void GenerateChangeReport(
     const GS::Array<ChangeReport>& changeReports,
     const GS::Array<GS::UniString>& missingMorphIds,
-    const GS::Array<GS::UniString>& missingZoneWarnings);
+    const GS::Array<GS::UniString>& missingZoneWarnings,
+    const GS::Array<GS::UniString>& idMismatchWarnings);
 
 #endif // _PHPURES_REPORT_GENERATOR_H_

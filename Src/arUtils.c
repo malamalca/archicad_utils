@@ -113,6 +113,15 @@ void arRealignPolygonNode()
 	Int32				nSubPolys, i, begInd, endInd;
 	GSErrCode			err = NoError;
 
+	if (DGAlert(DG_INFORMATION, "Realign Polygon Node",
+			"This will let you click a single polygon node and snap its X/Y "
+			"coordinates to the nearest aligned grid position. Connected "
+			"sub-polygon endpoints sharing that node are updated to match.\n\n"
+			"Do you want to proceed?",
+			GS::UniString(), "OK", "Cancel") != 1) {
+		return;
+	}
+
 	if (!ClickAnElem("Click a polygon node to realign", API_ZombieElemID, &neig, &type, nullptr, &begC)) {
 		DGAlert(DG_ERROR, "Realign Node", "No Node Was Clicked", GS::UniString (), "OK");
 		return;
@@ -185,7 +194,17 @@ void arRealignPolygon()
 	GS::Array<API_Neig>				selNeigs;
 	API_Element 					element;
 	API_ElementMemo					memo;
-	
+
+	if (DGAlert(DG_INFORMATION, "Realign Polygon",
+			"This will snap the X/Y coordinates of every node in the currently "
+			"selected polygon element(s) to the nearest aligned grid position. "
+			"Closing endpoints of each sub-polygon are kept consistent. The "
+			"change can be undone.\n\n"
+			"Do you want to proceed?",
+			GS::UniString(), "OK", "Cancel") != 1) {
+		return;
+	}
+
 	err = ACAPI_Selection_Get(&selectionInfo, &selNeigs, true);
 	BMKillHandle((GSHandle*)&selectionInfo.marquee.coords);
 

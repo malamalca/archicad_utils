@@ -12,9 +12,6 @@ struct FaceData {
 };
 
 GSErrCode ExportMorphFaces();
-GSErrCode ProcessMorphElement(const API_Guid& elemGuid);
-void SortVerticesCounterClockwise(std::vector<API_Coord3D>& vertices);
-API_Coord3D FindTopLeftVertex(const std::vector<API_Coord3D>& vertices);
-void WriteVerticesToFile(const std::vector<FaceData>& allFaces, const std::vector<Modeler::VertexId>& vertexIds);
+void WriteVerticesToFile(const std::vector<FaceData>& allFaces);
 
 #endif

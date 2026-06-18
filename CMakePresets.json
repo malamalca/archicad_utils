@@ -23,6 +23,12 @@
       }
     },
     {
+      "name": "ac29-INT-MAC",
+      "cacheVariables": {
+        "AC_API_DEVKIT_DIR": "/users/miha.nahtigal/Development/API.Development.Kit.MAC.29.3100"
+      }
+    },
+    {
       "name": "debug",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE":"Debug",
@@ -72,6 +78,11 @@
     {
       "name": "ac29-debug",
       "configurePreset": "ac29-INT",
+      "configuration": "Debug"
+    },
+    {
+      "name": "ac29-debug-mac",
+      "configurePreset": "ac29-INT-MAC",
       "configuration": "Debug"
     },
     {

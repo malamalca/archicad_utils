@@ -38,6 +38,14 @@ static void ProcessNonTransparentConstruction(
             if (oldVal != nullptr) report.oldPovrsina = oldVal->GetDouble();
         }
     }
+    if (zoneObj->HasMember("obseg")) {
+        report.hadObsegField = true;
+        JSON::ValueRef val = zoneObj->Get("obseg");
+        if (val != nullptr && val->IsNumber()) {
+            JSON::NumberValueRef oldVal = JSON::NumberValue::Cast(val);
+            if (oldVal != nullptr) report.oldObseg = oldVal->GetDouble();
+        }
+    }
     if (zoneObj->HasMember("stevilo")) {
         report.hadSteviloField = true;
         JSON::ValueRef val = zoneObj->Get("stevilo");
@@ -70,9 +78,10 @@ static void ProcessNonTransparentConstruction(
     
     double totalArea = 0.0;
     int totalCount = 0;
+    double perimeter = 0.0;  // per single element
     GS::UniString orientation, slope;
     bool foundMatch = false;
-    
+
     for (const auto& pair : morphDataMap) {
         const MorphFaceData& data = pair.value;
         // Match by zone ID and construction ID
@@ -82,6 +91,7 @@ static void ProcessNonTransparentConstruction(
             if (!foundMatch) {
                 orientation = data.orientacija;
                 slope = data.naklon;
+                perimeter = data.obseg;
                 foundMatch = true;
             }
             // Mark this specific entry as processed using the full morphDataMap key
@@ -92,24 +102,34 @@ static void ProcessNonTransparentConstruction(
     if (foundMatch) {
         // Store new values
         report.newPovrsina = totalArea;
+        report.newObseg = perimeter;
         report.newStevilo = totalCount;
         report.newOrientacija = orientation;
         report.newNaklon = slope;
-        
+
         // Check if anything changed (only count reportable changes)
         bool areaChanged = std::abs(report.oldPovrsina - report.newPovrsina) > 0.001;
+        bool obsegChanged = report.hadObsegField && std::abs(report.oldObseg - report.newObseg) > 0.001;
         bool steviloChanged = report.oldStevilo != report.newStevilo && (totalCount > 1 || report.hadSteviloField);
         bool orientacijaChanged = report.oldOrientacija != report.newOrientacija && orientation != "<Undefined>";
         bool naklonChanged = report.oldNaklon != report.newNaklon && slope != "<Undefined>" && (slope != "0" || report.hadNaklonField);
-        
-        report.hasChanges = areaChanged || steviloChanged || orientacijaChanged || naklonChanged;
-        
+
+        report.hasChanges = areaChanged || obsegChanged || steviloChanged || orientacijaChanged || naklonChanged;
+
         // Update area if changed
         if (std::abs(report.oldPovrsina - report.newPovrsina) > 0.001) {
             if (zoneObj->HasMember("povrsina")) {
                 zoneObj->Remove("povrsina");
             }
             zoneObj->Add("povrsina", totalArea);
+        }
+
+        // Update obseg (circumference) only if the key already exists in the JSON
+        if (report.hadObsegField && std::abs(report.oldObseg - report.newObseg) > 0.001) {
+            if (zoneObj->HasMember("obseg")) {
+                zoneObj->Remove("obseg");
+            }
+            zoneObj->Add("obseg", perimeter);
         }
         
         // Only update stevilo if it changed AND (it's > 1 OR the field existed before)
@@ -178,6 +198,14 @@ static void ProcessTransparentConstruction(
             if (oldVal != nullptr) report.oldPovrsina = oldVal->GetDouble();
         }
     }
+    if (zoneObj->HasMember("obseg")) {
+        report.hadObsegField = true;
+        JSON::ValueRef val = zoneObj->Get("obseg");
+        if (val != nullptr && val->IsNumber()) {
+            JSON::NumberValueRef oldVal = JSON::NumberValue::Cast(val);
+            if (oldVal != nullptr) report.oldObseg = oldVal->GetDouble();
+        }
+    }
     if (zoneObj->HasMember("stevilo")) {
         report.hadSteviloField = true;
         JSON::ValueRef val = zoneObj->Get("stevilo");
@@ -237,6 +265,7 @@ static void ProcessTransparentConstruction(
     
     double sumArea = 0.0;
     int totalCount = 0;
+    double perimeter = 0.0;  // per single element
     GS::UniString framePercentage;
     GS::UniString elementVgradnje;
     GS::UniString dolzinaSteklaValue;
@@ -260,6 +289,7 @@ static void ProcessTransparentConstruction(
                 framePercentage = data.delezOkvirja;
                 elementVgradnje = data.idElementaVgradnje;
                 dolzinaSteklaValue = data.dolzinaStekla;
+                perimeter = data.obseg;
                 foundMatch = true;
             }
             // Mark this specific entry as processed using the full morphDataMap key
@@ -273,26 +303,36 @@ static void ProcessTransparentConstruction(
     if (foundMatch) {
         // Store new values
         report.newPovrsina = perUnitArea;
+        report.newObseg = perimeter;
         report.newStevilo = totalCount;
         report.newDelezOkvirja = framePercentage;
         report.newIdElementaVgradnje = elementVgradnje;
         report.newDolzinaStekla = dolzinaSteklaValue;
-        
+
         // Check if anything changed (only count reportable changes)
         bool areaChanged = std::abs(report.oldPovrsina - report.newPovrsina) > 0.001;
+        bool obsegChanged = report.hadObsegField && std::abs(report.oldObseg - report.newObseg) > 0.001;
         bool steviloChanged = report.oldStevilo != report.newStevilo && (totalCount > 1 || report.hadSteviloField);
         bool delezOkvirjaChanged = report.oldDelezOkvirja != report.newDelezOkvirja && framePercentage != "<Undefined>";
         bool dolzinaSteklaChanged = report.oldDolzinaStekla != report.newDolzinaStekla && dolzinaSteklaValue != "<Undefined>";
         bool idElementaVgradnjeChanged = report.oldIdElementaVgradnje != report.newIdElementaVgradnje && elementVgradnje != "<Undefined>";
-        
-        report.hasChanges = areaChanged || steviloChanged || delezOkvirjaChanged || dolzinaSteklaChanged || idElementaVgradnjeChanged;
-        
+
+        report.hasChanges = areaChanged || obsegChanged || steviloChanged || delezOkvirjaChanged || dolzinaSteklaChanged || idElementaVgradnjeChanged;
+
         // Update area if changed
         if (std::abs(report.oldPovrsina - report.newPovrsina) > 0.001) {
             if (zoneObj->HasMember("povrsina")) {
                 zoneObj->Remove("povrsina");
             }
             zoneObj->Add("povrsina", perUnitArea);
+        }
+
+        // Update obseg (circumference) only if the key already exists in the JSON
+        if (report.hadObsegField && std::abs(report.oldObseg - report.newObseg) > 0.001) {
+            if (zoneObj->HasMember("obseg")) {
+                zoneObj->Remove("obseg");
+            }
+            zoneObj->Add("obseg", perimeter);
         }
         
         // Only update stevilo if it changed AND (it's > 1 OR the field existed before)
@@ -309,7 +349,9 @@ static void ProcessTransparentConstruction(
                 if (zoneObj->HasMember("delezOkvirja")) {
                     zoneObj->Remove("delezOkvirja");
                 }
-                zoneObj->Add("delezOkvirja", framePercentage);
+                double delezOkvirjaFloat = 0.0;
+                framePercentage.SScanf("%lf", &delezOkvirjaFloat);
+                zoneObj->Add("delezOkvirja", delezOkvirjaFloat);
             }
         } else if (framePercentage == "<Undefined>" && zoneObj->HasMember("delezOkvirja")) {
             zoneObj->Remove("delezOkvirja");
@@ -321,7 +363,9 @@ static void ProcessTransparentConstruction(
                 if (zoneObj->HasMember("dolzinaStekla")) {
                     zoneObj->Remove("dolzinaStekla");
                 }
-                zoneObj->Add("dolzinaStekla", dolzinaSteklaValue);
+                double dolzinaSteklaFloat = 0.0;
+                dolzinaSteklaValue.SScanf("%lf", &dolzinaSteklaFloat);
+                zoneObj->Add("dolzinaStekla", dolzinaSteklaFloat);
             }
         } else if (dolzinaSteklaValue == "<Undefined>" && zoneObj->HasMember("dolzinaStekla")) {
             zoneObj->Remove("dolzinaStekla");
@@ -346,6 +390,51 @@ static void ProcessTransparentConstruction(
     }
 }
 
+// Process all constructions inside a single zone's 'ovoj' object.
+// The owning zone id is known by the caller, so no lookup is required.
+static void ProcessOvojConstructions(
+    JSON::ObjectValueRef ovojObject,
+    const GS::UniString& jsonZoneId,
+    const GS::HashTable<GS::UniString, MorphFaceData>& morphDataMap,
+    GS::HashSet<GS::UniString>& processedMorphIds,
+    GS::Array<ChangeReport>& changeReports,
+    GS::Array<GS::UniString>& missingMorphIds)
+{
+    if (ovojObject == nullptr) return;
+
+    // Non-transparent constructions
+    if (ovojObject->HasMember("netransparentneKonstrukcije")) {
+        JSON::ArrayValueRef nonTransparentArray = JSON::ArrayValue::Cast(ovojObject->Get("netransparentneKonstrukcije"));
+        if (nonTransparentArray != nullptr) {
+            for (UIndex i = 0; i < nonTransparentArray->GetSize(); i++) {
+                JSON::ObjectValueRef zoneObj = JSON::ObjectValue::Cast(nonTransparentArray->Get(i));
+                if (zoneObj != nullptr && zoneObj->HasMember("id")) {
+                    GS::UniString zoneId;
+                    zoneObj->GetMandatoryMember("id", zoneId);
+                    ProcessNonTransparentConstruction(zoneObj, zoneId, jsonZoneId, morphDataMap,
+                                                      processedMorphIds, changeReports, missingMorphIds);
+                }
+            }
+        }
+    }
+
+    // Transparent constructions
+    if (ovojObject->HasMember("transparentneKonstrukcije")) {
+        JSON::ArrayValueRef transparentArray = JSON::ArrayValue::Cast(ovojObject->Get("transparentneKonstrukcije"));
+        if (transparentArray != nullptr) {
+            for (UIndex i = 0; i < transparentArray->GetSize(); i++) {
+                JSON::ObjectValueRef zoneObj = JSON::ObjectValue::Cast(transparentArray->Get(i));
+                if (zoneObj != nullptr && zoneObj->HasMember("id")) {
+                    GS::UniString zoneId;
+                    zoneObj->GetMandatoryMember("id", zoneId);
+                    ProcessTransparentConstruction(zoneObj, zoneId, jsonZoneId, morphDataMap,
+                                                   processedMorphIds, changeReports, missingMorphIds);
+                }
+            }
+        }
+    }
+}
+
 // Update JSON with morph data - existing entries
 GSErrCode UpdateExistingJsonEntries(
     JSON::ObjectValueRef& ovojObject,
@@ -358,88 +447,31 @@ GSErrCode UpdateExistingJsonEntries(
     processedMorphIds.Clear();
     changeReports.Clear();
     missingMorphIds.Clear();
-    
+
     try {
-        // Process non-transparent constructions
-        if (ovojObject->HasMember("netransparentneKonstrukcije")) {
-            JSON::ArrayValueRef nonTransparentArray = JSON::ArrayValue::Cast(ovojObject->Get("netransparentneKonstrukcije"));
-            if (nonTransparentArray != nullptr) {
-                for (UIndex i = 0; i < nonTransparentArray->GetSize(); i++) {
-                    JSON::ObjectValueRef zoneObj = JSON::ObjectValue::Cast(nonTransparentArray->Get(i));
-                    if (zoneObj != nullptr && zoneObj->HasMember("id")) {
-                        GS::UniString zoneId;
-                        zoneObj->GetMandatoryMember("id", zoneId);
-                        
-                        // Find parent zone ID
-                        GS::UniString jsonZoneId;
-                        if (rootArray != nullptr) {
-                            for (USize j = 0; j < rootArray->GetSize(); j++) {
-                                JSON::ObjectValueRef zone = JSON::ObjectValue::Cast(rootArray->Get(j));
-                                if (zone != nullptr && zone->HasMember("ovoj")) {
-                                    JSON::ObjectValueRef ovoj = JSON::ObjectValue::Cast(zone->Get("ovoj"));
-                                    if (ovoj != nullptr && ovoj->HasMember("netransparentneKonstrukcije")) {
-                                        JSON::ArrayValueRef arr = JSON::ArrayValue::Cast(ovoj->Get("netransparentneKonstrukcije"));
-                                        if (arr != nullptr) {
-                                            for (UIndex k = 0; k < arr->GetSize(); k++) {
-                                                if (arr->Get(k) == zoneObj) {
-                                                    zone->GetMandatoryMember("id", jsonZoneId);
-                                                    break;
-                                                }
-                                            }
-                                        }
-                                    }
-                                    if (!jsonZoneId.IsEmpty()) break;
-                                }
-                            }
-                        }
-                        
-                        ProcessNonTransparentConstruction(zoneObj, zoneId, jsonZoneId, morphDataMap, 
-                                                          processedMorphIds, changeReports, missingMorphIds);
-                    }
+        if (rootArray != nullptr) {
+            // Array root: process every zone's ovoj, using each zone's own id
+            for (USize j = 0; j < rootArray->GetSize(); j++) {
+                JSON::ObjectValueRef zone = JSON::ObjectValue::Cast(rootArray->Get(j));
+                if (zone == nullptr || !zone->HasMember("ovoj")) continue;
+
+                JSON::ObjectValueRef ovoj = JSON::ObjectValue::Cast(zone->Get("ovoj"));
+                if (ovoj == nullptr) continue;
+
+                GS::UniString jsonZoneId;
+                if (zone->HasMember("id")) {
+                    zone->GetMandatoryMember("id", jsonZoneId);
                 }
+
+                ProcessOvojConstructions(ovoj, jsonZoneId, morphDataMap,
+                                         processedMorphIds, changeReports, missingMorphIds);
             }
+        } else {
+            // Single-object root: the extracted ovoj is the only zone available
+            ProcessOvojConstructions(ovojObject, GS::UniString(), morphDataMap,
+                                     processedMorphIds, changeReports, missingMorphIds);
         }
-        
-        // Process transparent constructions
-        if (ovojObject->HasMember("transparentneKonstrukcije")) {
-            JSON::ArrayValueRef transparentArray = JSON::ArrayValue::Cast(ovojObject->Get("transparentneKonstrukcije"));
-            if (transparentArray != nullptr) {
-                for (UIndex i = 0; i < transparentArray->GetSize(); i++) {
-                    JSON::ObjectValueRef zoneObj = JSON::ObjectValue::Cast(transparentArray->Get(i));
-                    if (zoneObj != nullptr && zoneObj->HasMember("id")) {
-                        GS::UniString zoneId;
-                        zoneObj->GetMandatoryMember("id", zoneId);
-                        
-                        // Find parent zone ID
-                        GS::UniString jsonZoneId;
-                        if (rootArray != nullptr) {
-                            for (USize j = 0; j < rootArray->GetSize(); j++) {
-                                JSON::ObjectValueRef zone = JSON::ObjectValue::Cast(rootArray->Get(j));
-                                if (zone != nullptr && zone->HasMember("ovoj")) {
-                                    JSON::ObjectValueRef ovoj = JSON::ObjectValue::Cast(zone->Get("ovoj"));
-                                    if (ovoj != nullptr && ovoj->HasMember("transparentneKonstrukcije")) {
-                                        JSON::ArrayValueRef arr = JSON::ArrayValue::Cast(ovoj->Get("transparentneKonstrukcije"));
-                                        if (arr != nullptr) {
-                                            for (UIndex k = 0; k < arr->GetSize(); k++) {
-                                                if (arr->Get(k) == zoneObj) {
-                                                    zone->GetMandatoryMember("id", jsonZoneId);
-                                                    break;
-                                                }
-                                            }
-                                        }
-                                    }
-                                    if (!jsonZoneId.IsEmpty()) break;
-                                }
-                            }
-                        }
-                        
-                        ProcessTransparentConstruction(zoneObj, zoneId, jsonZoneId, morphDataMap, 
-                                                       processedMorphIds, changeReports, missingMorphIds);
-                    }
-                }
-            }
-        }
-        
+
     } catch (const GS::Exception&) {
         ACAPI_WriteReport("", true);
         ACAPI_WriteReport("ERROR: GS Exception during JSON processing", true);
@@ -563,10 +595,14 @@ GSErrCode AddNewMorphsToJson(
                     newKonstrukcija->Add("stevilo", (Int32)data.stevilo);
                 }
                 if (data.hasDelezOkvirja && !data.delezOkvirja.IsEmpty() && data.delezOkvirja != "<Undefined>") {
-                    newKonstrukcija->Add("delezOkvirja", data.delezOkvirja);
+                    double delezOkvirjaFloat = 0.0;
+                    data.delezOkvirja.SScanf("%lf", &delezOkvirjaFloat);
+                    newKonstrukcija->Add("delezOkvirja", delezOkvirjaFloat);
                 }
                 if (data.hasDolzinaStekla && !data.dolzinaStekla.IsEmpty() && data.dolzinaStekla != "<Undefined>") {
-                    newKonstrukcija->Add("dolzinaStekla", data.dolzinaStekla);
+                    double dolzinaSteklaFloat = 0.0;
+                    data.dolzinaStekla.SScanf("%lf", &dolzinaSteklaFloat);
+                    newKonstrukcija->Add("dolzinaStekla", dolzinaSteklaFloat);
                 }
             }
             

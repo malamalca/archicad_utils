@@ -14,6 +14,8 @@ struct ChangeReport {
     bool isTransparent;
     double oldPovrsina;
     double newPovrsina;
+    double oldObseg;
+    double newObseg;
     int oldStevilo;
     int newStevilo;
     GS::UniString oldOrientacija;
@@ -27,6 +29,7 @@ struct ChangeReport {
     GS::UniString oldIdElementaVgradnje;
     GS::UniString newIdElementaVgradnje;
     bool hasChanges;
+    bool hadObsegField;
     bool hadSteviloField;
     bool hadOrientacijaField;
     bool hadNaklonField;
@@ -34,8 +37,10 @@ struct ChangeReport {
     bool hadDolzinaSteklaField;
     bool hadIdElementaVgradnjeField;
     
-    ChangeReport() : isTransparent(false), oldPovrsina(0.0), newPovrsina(0.0), 
+    ChangeReport() : isTransparent(false), oldPovrsina(0.0), newPovrsina(0.0),
+                    oldObseg(0.0), newObseg(0.0),
                     oldStevilo(0), newStevilo(0), hasChanges(false),
+                    hadObsegField(false),
                     hadSteviloField(false), hadOrientacijaField(false),
                     hadNaklonField(false), hadDelezOkvirjaField(false),
                     hadDolzinaSteklaField(false), hadIdElementaVgradnjeField(false) {}

@@ -259,6 +259,9 @@ endif ()
 file (GLOB GSLinkLibFolders
 	${APIDevKitLinkLibDir}/*
 )
+
+list(FILTER GSLinkLibFolders EXCLUDE REGEX ".*/\\.DS_Store$")
+
 foreach (linkLibFolder ${GSLinkLibFolders})
 	AddGSModuleLinkLibrary (AddOn ${linkLibFolder})
 endforeach ()

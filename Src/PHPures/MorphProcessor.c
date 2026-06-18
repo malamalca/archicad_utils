@@ -2,16 +2,26 @@
 #include "PropertyUtils.h"
 #include "MorphUtils.h"
 #include "APICommon.h"
+#include "HashSet.hpp"
 #include <cmath>
 
 // Process all morphs in the project and extract their data
-GSErrCode ProcessMorphElements(GS::HashTable<GS::UniString, MorphFaceData>& morphDataMap, 
-                               int& totalFaces, 
-                               int& morphsWithProperties)
+GSErrCode ProcessMorphElements(GS::HashTable<GS::UniString, MorphFaceData>& morphDataMap,
+                               int& totalFaces,
+                               int& morphsWithProperties,
+                               GS::Array<GS::UniString>& idMismatchWarnings)
 {
     totalFaces = 0;
     morphsWithProperties = 0;
     morphDataMap.Clear();
+    idMismatchWarnings.Clear();
+
+    // Track, per element ID, the parameter signature of the first morph seen with
+    // that ID (zone is intentionally excluded so the same ID may live in several
+    // zones). When a later morph shares the ID but has a different signature, the
+    // elements are not really identical even though they share an ID.
+    GS::HashTable<GS::UniString, GS::UniString> idSignatures;
+    GS::HashSet<GS::UniString> mismatchedIds;
     
     // Get all morphs from entire project (all floors)
     GS::Array<API_Guid> morphList;
@@ -22,7 +32,18 @@ GSErrCode ProcessMorphElements(GS::HashTable<GS::UniString, MorphFaceData>& morp
         return err;
     }
     
-    ACAPI_WriteReport("Found %d morph elements in project", false, morphList.GetSize());
+    ACAPI_WriteReport("Found %d morph elements in project", false, (int)morphList.GetSize());
+
+    // Property names we read from each morph (fetched in one batched pass per element)
+    GS::Array<GS::UniString> propNames;
+    propNames.Push("ID Zone");
+    propNames.Push("ID Konstrukcije");
+    propNames.Push("ID OknaVrata");
+    propNames.Push("ID Elementa vgradnje");
+    propNames.Push("Orientacija");
+    propNames.Push("Naklon");
+    propNames.Push("Delež okvirja");
+    propNames.Push("Dolžina stekla");
     
     if (morphList.GetSize() == 0) {
         ACAPI_WriteReport("WARNING: No morph elements exist in this project", true);
@@ -54,26 +75,30 @@ GSErrCode ProcessMorphElements(GS::HashTable<GS::UniString, MorphFaceData>& morp
         }
         
         morphsWithProperties++;
-        
+
+        // Fetch all needed properties in a single batched pass over the definitions
+        GS::HashTable<GS::UniString, GS::UniString> props;
+        GetElementPropertyValues(morphGuid, propNames, props);
+
         // Get zone ID from ID Zone property (in PHPures group)
         GS::UniString zoneId;
-        if (!GetElementPropertyValue(morphGuid, "ID Zone", zoneId) || zoneId.IsEmpty()) {
+        if (!props.Get("ID Zone", &zoneId) || zoneId.IsEmpty()) {
             ACAPI_WriteReport("Skipping morph '%s': Missing or empty 'ID Zone' property", true, faceId.ToCStr().Get());
             continue; // Skip morphs without zone assignment
         }
         zoneId.Trim();
-        
-        // Get properties from morph element
+
+        // Get properties from morph element (GetElementPropertyValues stores only non-empty values)
         GS::UniString idKonstrukcije, idOknaVrata, idElementaVgradnje;
         GS::UniString orientacija, naklon, delezOkvirja, dolzinaStekla;
-        
-        GetElementPropertyValue(morphGuid, "ID Konstrukcije", idKonstrukcije);
-        bool hasIdOknaVrata = GetElementPropertyValue(morphGuid, "ID OknaVrata", idOknaVrata);
-        bool hasIdElementaVgradnje = GetElementPropertyValue(morphGuid, "ID Elementa vgradnje", idElementaVgradnje);
-        bool hasOrientacija = GetElementPropertyValue(morphGuid, "Orientacija", orientacija);
-        bool hasNaklon = GetElementPropertyValue(morphGuid, "Naklon", naklon);
-        bool hasDelezOkvirja = GetElementPropertyValue(morphGuid, "Delež okvirja", delezOkvirja);
-        bool hasDolzinaStekla = GetElementPropertyValue(morphGuid, "Dolžina stekla", dolzinaStekla);
+
+        props.Get("ID Konstrukcije", &idKonstrukcije);
+        bool hasIdOknaVrata = props.Get("ID OknaVrata", &idOknaVrata);
+        bool hasIdElementaVgradnje = props.Get("ID Elementa vgradnje", &idElementaVgradnje);
+        bool hasOrientacija = props.Get("Orientacija", &orientacija);
+        bool hasNaklon = props.Get("Naklon", &naklon);
+        bool hasDelezOkvirja = props.Get("Delež okvirja", &delezOkvirja);
+        bool hasDolzinaStekla = props.Get("Dolžina stekla", &dolzinaStekla);
         
         // Get morph surface area using Archicad API
         double areaM2 = GetMorphSurfaceArea(morphGuid);
@@ -83,9 +108,16 @@ GSErrCode ProcessMorphElements(GS::HashTable<GS::UniString, MorphFaceData>& morp
         
         // Round to 2 decimal places
         areaM2 = std::round(areaM2 * 100.0) / 100.0;
-        
+
+        // Get the face outline perimeter (circumference), per single element
+        double obsegM = GetMorphPerimeter(morphGuid);
+        obsegM = std::round(obsegM * 100.0) / 100.0;
+
         // Create unique key from normalized values so counts are per exported record
+        // and a human-readable parameter signature (key without zone/id) used to
+        // detect morphs that share an ID but differ in their parameters.
         GS::UniString key;
+        GS::UniString signature;
         if (hasIdOknaVrata && !idOknaVrata.IsEmpty()) {
             GS::UniString normIdOknaVrata = idOknaVrata;
             GS::UniString normIdElementaVgradnje;
@@ -124,6 +156,12 @@ GSErrCode ProcessMorphElements(GS::HashTable<GS::UniString, MorphFaceData>& morp
             }
 
             key = zoneId + "|" + faceId + "|" + GS::ValueToUniString(areaM2) + "|" + normIdOknaVrata + "|" + normIdElementaVgradnje + "|" + normDelezOkvirja + "|" + normDolzinaStekla;
+            signature = GS::UniString::Printf("transparent | povrsina=%.2f | idOknaVrata=%s | idElementaVgradnje=%s | delezOkvirja=%s | dolzinaStekla=%s",
+                                              areaM2,
+                                              normIdOknaVrata.ToCStr().Get(),
+                                              normIdElementaVgradnje.ToCStr().Get(),
+                                              normDelezOkvirja.ToCStr().Get(),
+                                              normDolzinaStekla.ToCStr().Get());
         } else {
             GS::UniString normIdKonstrukcije = idKonstrukcije;
             GS::UniString normOrientacija = orientacija;
@@ -134,14 +172,35 @@ GSErrCode ProcessMorphElements(GS::HashTable<GS::UniString, MorphFaceData>& morp
             normNaklon.Trim();
 
             key = zoneId + "|" + faceId + "|" + GS::ValueToUniString(areaM2) + "|" + normIdKonstrukcije + "|" + normOrientacija + "|" + normNaklon;
+            signature = GS::UniString::Printf("netransparent | povrsina=%.2f | idKonstrukcije=%s | orientacija=%s | naklon=%s",
+                                              areaM2,
+                                              normIdKonstrukcije.ToCStr().Get(),
+                                              normOrientacija.ToCStr().Get(),
+                                              normNaklon.ToCStr().Get());
         }
-        
+
+        // Detect morphs that share an ID but are not really the same element
+        GS::UniString existingSignature;
+        if (idSignatures.Get(faceId, &existingSignature)) {
+            if (existingSignature != signature && !mismatchedIds.Contains(faceId)) {
+                mismatchedIds.Add(faceId);
+                idMismatchWarnings.Push(GS::UniString::Printf(
+                    "ID '%s' has elements with different parameter values:\n      %s\n      %s",
+                    faceId.ToCStr().Get(),
+                    existingSignature.ToCStr().Get(),
+                    signature.ToCStr().Get()));
+            }
+        } else {
+            idSignatures.Add(faceId, signature);
+        }
+
         // Store or update face data
         if (!morphDataMap.ContainsKey(key)) {
             MorphFaceData faceData;
             faceData.id = faceId;
             faceData.zoneId = zoneId;
             faceData.povrsina = areaM2;
+            faceData.obseg = obsegM;
             
             // Determine if transparent or non-transparent based on properties
             if (hasIdOknaVrata && !idOknaVrata.IsEmpty()) {
