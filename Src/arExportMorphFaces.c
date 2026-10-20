@@ -8,8 +8,9 @@
 
 #include "arExportMorphFaces.h"
 
+#include "File.hpp"
+
 #include <vector>
-#include <fstream>
 #include <algorithm>
 #include <cmath>
 #include <sstream>
@@ -139,17 +140,8 @@ void WriteVerticesToFile(const std::vector<FaceData>& allFaces)
     IO::Location fileLoc(folderLoc);
     fileLoc.AppendToLocal(fileName);
 
-    // Open file for writing
-    std::ofstream outFile;
-    GS::UniString path;
-    fileLoc.ToPath(&path);
-
-    outFile.open(path.ToCStr(), std::ios::out | std::ios::trunc);
-
-    if (!outFile.is_open()) {
-        ACAPI_WriteReport("Failed to create output file", false);
-        return;
-    }
+    // Assemble the entire document in memory, then write it in one shot below.
+    std::string doc;
 
     // Build JSON-like JS array of faces with hole information
     std::ostringstream facesJs;
@@ -179,11 +171,11 @@ void WriteVerticesToFile(const std::vector<FaceData>& allFaces)
     facesJs << "];\n";
 
     // Write HTML + Three.js + Earcut
-    outFile << "<!doctype html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"utf-8\">\n  <title>Morph Faces Preview</title>\n  <style>body{margin:0;overflow:hidden}#info{position:absolute;top:10px;left:10px;color:#fff;background:rgba(0,0,0,0.3);padding:6px;border-radius:4px;font-family:Arial}#controls{position:absolute;top:50px;left:10px;color:#fff;background:rgba(0,0,0,0.3);padding:6px;border-radius:4px;font-family:Arial}label{display:block;margin:4px 0;cursor:pointer}</style>\n</head>\n<body>\n<div id=\"info\">Drag to orbit, scroll to zoom</div>\n<div id=\"controls\">\n  <label><input type=\"checkbox\" id=\"wireframe\"> Wireframe</label>\n  <label><input type=\"checkbox\" id=\"doubleSide\" checked> Double-sided</label>\n  <label><input type=\"checkbox\" id=\"showNormals\"> Show Normals</label>\n  <label><input type=\"checkbox\" id=\"colorByPlane\"> Color by Plane</label>\n</div>\n<script src=\"https://unpkg.com/earcut@2.2.4/dist/earcut.min.js\"></script>\n<script type=\"importmap\">{\n  \"imports\": {\n    \"three\": \"https://cdn.jsdelivr.net/npm/three@0.159.0/build/three.module.js\",\n    \"three/addons/\": \"https://cdn.jsdelivr.net/npm/three@0.159.0/examples/jsm/\"\n  }\n}</script>\n<script type=\"module\">\n";
+    doc += "<!doctype html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"utf-8\">\n  <title>Morph Faces Preview</title>\n  <style>body{margin:0;overflow:hidden}#info{position:absolute;top:10px;left:10px;color:#fff;background:rgba(0,0,0,0.3);padding:6px;border-radius:4px;font-family:Arial}#controls{position:absolute;top:50px;left:10px;color:#fff;background:rgba(0,0,0,0.3);padding:6px;border-radius:4px;font-family:Arial}label{display:block;margin:4px 0;cursor:pointer}</style>\n</head>\n<body>\n<div id=\"info\">Drag to orbit, scroll to zoom</div>\n<div id=\"controls\">\n  <label><input type=\"checkbox\" id=\"wireframe\"> Wireframe</label>\n  <label><input type=\"checkbox\" id=\"doubleSide\" checked> Double-sided</label>\n  <label><input type=\"checkbox\" id=\"showNormals\"> Show Normals</label>\n  <label><input type=\"checkbox\" id=\"colorByPlane\"> Color by Plane</label>\n</div>\n<script src=\"https://unpkg.com/earcut@2.2.4/dist/earcut.min.js\"></script>\n<script type=\"importmap\">{\n  \"imports\": {\n    \"three\": \"https://cdn.jsdelivr.net/npm/three@0.159.0/build/three.module.js\",\n    \"three/addons/\": \"https://cdn.jsdelivr.net/npm/three@0.159.0/examples/jsm/\"\n  }\n}</script>\n<script type=\"module\">\n";
 
-    outFile << facesJs.str();
+    doc += facesJs.str();
 
-    outFile << R"JS(
+    doc += R"JS(
 import * as THREE from 'three';
 import { OrbitControls } from 'https://cdn.jsdelivr.net/npm/three@0.159.0/examples/jsm/controls/OrbitControls.js';
 import { VertexNormalsHelper } from 'three/addons/helpers/VertexNormalsHelper.js';
@@ -379,11 +371,26 @@ animate();
 
 )JS";
 
-    outFile << "</script>\n</body>\n</html>\n";
+    doc += "</script>\n</body>\n</html>\n";
 
-    outFile.close();
+    // Write via IO::File so Unicode paths are handled correctly (a narrow
+    // std::ofstream would mangle non-ASCII paths on Windows).
+    IO::File outFile(fileLoc, IO::File::Create);
+    if (outFile.Open(IO::File::WriteEmptyMode) != NoError) {
+        ACAPI_WriteReport("Failed to create output file", false);
+        return;
+    }
+    USize written = 0;
+    const GSErrCode werr = outFile.WriteBin(doc.data(), static_cast<USize>(doc.size()), &written);
+    outFile.Close();
+    if (werr != NoError || written != static_cast<USize>(doc.size())) {
+        ACAPI_WriteReport("Failed to write output file", false);
+        return;
+    }
 
     // Report file location
+    GS::UniString path;
+    fileLoc.ToPath(&path);
     GS::UniString reportMsg = GS::UniString("HTML preview exported to: ") + path;
     ACAPI_WriteReport(reportMsg, false);
 }

@@ -343,6 +343,7 @@ GSErrCode RegisterInterface (void)
 	err = ACAPI_MenuItem_RegisterMenu (ID_MENU_MAIN2, ID_MENU_PROMPT_MAIN2, MenuCode_UserDef, MenuFlag_Default);
 	if (DBERROR (err != NoError))
 		return err;
+
 	return NoError;
 } // RegisterInterface
 

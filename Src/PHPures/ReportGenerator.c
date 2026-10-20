@@ -37,10 +37,17 @@ void GenerateChangeReport(
             }
 
             if (report.oldStevilo != report.newStevilo && (report.newStevilo > 1 || report.hadSteviloField)) {
-                ACAPI_WriteReport("  stevilo: %d -> %d", false, 
+                ACAPI_WriteReport("  stevilo: %d -> %d", false,
                                 report.oldStevilo, report.newStevilo);
             }
-            
+
+            if (report.oldIdKonstrukcije != report.newIdKonstrukcije &&
+                !report.newIdKonstrukcije.IsEmpty() && report.newIdKonstrukcije != "<Undefined>") {
+                ACAPI_WriteReport("  idKonstrukcije: '%s' -> '%s'", false,
+                                report.oldIdKonstrukcije.ToCStr().Get(),
+                                report.newIdKonstrukcije.ToCStr().Get());
+            }
+
             if (!report.isTransparent) {
                 if (report.oldOrientacija != report.newOrientacija && report.newOrientacija != "<Undefined>") {
                     ACAPI_WriteReport("  orientacija: '%s' -> '%s'", false, 

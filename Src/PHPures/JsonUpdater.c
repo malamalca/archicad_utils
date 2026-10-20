@@ -75,11 +75,19 @@ static void ProcessNonTransparentConstruction(
             }
         }
     }
-    
+    if (zoneObj->HasMember("idKonstrukcije")) {
+        report.hadIdKonstrukcijeField = true;
+        JSON::ValueRef val = zoneObj->Get("idKonstrukcije");
+        if (val != nullptr && val->IsString()) {
+            JSON::StringValueRef oldVal = JSON::StringValue::Cast(val);
+            if (oldVal != nullptr) report.oldIdKonstrukcije = oldVal->Get();
+        }
+    }
+
     double totalArea = 0.0;
     int totalCount = 0;
     double perimeter = 0.0;  // per single element
-    GS::UniString orientation, slope;
+    GS::UniString orientation, slope, konstrukcija;
     bool foundMatch = false;
 
     for (const auto& pair : morphDataMap) {
@@ -91,6 +99,7 @@ static void ProcessNonTransparentConstruction(
             if (!foundMatch) {
                 orientation = data.orientacija;
                 slope = data.naklon;
+                konstrukcija = data.idKonstrukcije;
                 perimeter = data.obseg;
                 foundMatch = true;
             }
@@ -106,6 +115,7 @@ static void ProcessNonTransparentConstruction(
         report.newStevilo = totalCount;
         report.newOrientacija = orientation;
         report.newNaklon = slope;
+        report.newIdKonstrukcije = konstrukcija;
 
         // Check if anything changed (only count reportable changes)
         bool areaChanged = std::abs(report.oldPovrsina - report.newPovrsina) > 0.001;
@@ -113,8 +123,9 @@ static void ProcessNonTransparentConstruction(
         bool steviloChanged = report.oldStevilo != report.newStevilo && (totalCount > 1 || report.hadSteviloField);
         bool orientacijaChanged = report.oldOrientacija != report.newOrientacija && orientation != "<Undefined>";
         bool naklonChanged = report.oldNaklon != report.newNaklon && slope != "<Undefined>" && (slope != "0" || report.hadNaklonField);
+        bool konstrukcijaChanged = report.oldIdKonstrukcije != report.newIdKonstrukcije && !konstrukcija.IsEmpty() && konstrukcija != "<Undefined>";
 
-        report.hasChanges = areaChanged || obsegChanged || steviloChanged || orientacijaChanged || naklonChanged;
+        report.hasChanges = areaChanged || obsegChanged || steviloChanged || orientacijaChanged || naklonChanged || konstrukcijaChanged;
 
         // Update area if changed
         if (std::abs(report.oldPovrsina - report.newPovrsina) > 0.001) {
@@ -166,7 +177,17 @@ static void ProcessNonTransparentConstruction(
         } else if (slope == "<Undefined>" && zoneObj->HasMember("naklon")) {
             zoneObj->Remove("naklon");
         }
-        
+
+        // Update idKonstrukcije if it changed in Archicad
+        if (!konstrukcija.IsEmpty() && konstrukcija != "<Undefined>") {
+            if (report.oldIdKonstrukcije != report.newIdKonstrukcije) {
+                if (zoneObj->HasMember("idKonstrukcije")) {
+                    zoneObj->Remove("idKonstrukcije");
+                }
+                zoneObj->Add("idKonstrukcije", konstrukcija);
+            }
+        }
+
         changeReports.Push(report);
     } else {
         // ID exists in JSON but no morph found
@@ -262,13 +283,22 @@ static void ProcessTransparentConstruction(
             }
         }
     }
-    
+    if (zoneObj->HasMember("idKonstrukcije")) {
+        report.hadIdKonstrukcijeField = true;
+        JSON::ValueRef val = zoneObj->Get("idKonstrukcije");
+        if (val != nullptr && val->IsString()) {
+            JSON::StringValueRef oldVal = JSON::StringValue::Cast(val);
+            if (oldVal != nullptr) report.oldIdKonstrukcije = oldVal->Get();
+        }
+    }
+
     double sumArea = 0.0;
     int totalCount = 0;
     double perimeter = 0.0;  // per single element
     GS::UniString framePercentage;
     GS::UniString elementVgradnje;
     GS::UniString dolzinaSteklaValue;
+    GS::UniString konstrukcija;
     bool foundMatch = false;
     
     for (const auto& pair : morphDataMap) {
@@ -289,6 +319,7 @@ static void ProcessTransparentConstruction(
                 framePercentage = data.delezOkvirja;
                 elementVgradnje = data.idElementaVgradnje;
                 dolzinaSteklaValue = data.dolzinaStekla;
+                konstrukcija = data.idKonstrukcije;
                 perimeter = data.obseg;
                 foundMatch = true;
             }
@@ -308,6 +339,7 @@ static void ProcessTransparentConstruction(
         report.newDelezOkvirja = framePercentage;
         report.newIdElementaVgradnje = elementVgradnje;
         report.newDolzinaStekla = dolzinaSteklaValue;
+        report.newIdKonstrukcije = konstrukcija;
 
         // Check if anything changed (only count reportable changes)
         bool areaChanged = std::abs(report.oldPovrsina - report.newPovrsina) > 0.001;
@@ -316,8 +348,9 @@ static void ProcessTransparentConstruction(
         bool delezOkvirjaChanged = report.oldDelezOkvirja != report.newDelezOkvirja && framePercentage != "<Undefined>";
         bool dolzinaSteklaChanged = report.oldDolzinaStekla != report.newDolzinaStekla && dolzinaSteklaValue != "<Undefined>";
         bool idElementaVgradnjeChanged = report.oldIdElementaVgradnje != report.newIdElementaVgradnje && elementVgradnje != "<Undefined>";
+        bool konstrukcijaChanged = report.oldIdKonstrukcije != report.newIdKonstrukcije && !konstrukcija.IsEmpty() && konstrukcija != "<Undefined>";
 
-        report.hasChanges = areaChanged || obsegChanged || steviloChanged || delezOkvirjaChanged || dolzinaSteklaChanged || idElementaVgradnjeChanged;
+        report.hasChanges = areaChanged || obsegChanged || steviloChanged || delezOkvirjaChanged || dolzinaSteklaChanged || idElementaVgradnjeChanged || konstrukcijaChanged;
 
         // Update area if changed
         if (std::abs(report.oldPovrsina - report.newPovrsina) > 0.001) {
@@ -382,7 +415,17 @@ static void ProcessTransparentConstruction(
         } else if (elementVgradnje == "<Undefined>" && zoneObj->HasMember("idElementaVgradnje")) {
             zoneObj->Remove("idElementaVgradnje");
         }
-        
+
+        // Update idKonstrukcije if it changed in Archicad
+        if (!konstrukcija.IsEmpty() && konstrukcija != "<Undefined>") {
+            if (report.oldIdKonstrukcije != report.newIdKonstrukcije) {
+                if (zoneObj->HasMember("idKonstrukcije")) {
+                    zoneObj->Remove("idKonstrukcije");
+                }
+                zoneObj->Add("idKonstrukcije", konstrukcija);
+            }
+        }
+
         changeReports.Push(report);
     } else {
         // ID exists in JSON but no morph found

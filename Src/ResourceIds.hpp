@@ -10,5 +10,4 @@
 #define ID_MENU_MAIN2                       32512
 #define ID_MENU_PROMPT_MAIN2                32513
 
-
 #endif

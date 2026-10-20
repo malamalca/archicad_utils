@@ -28,6 +28,8 @@ struct ChangeReport {
     GS::UniString newDolzinaStekla;
     GS::UniString oldIdElementaVgradnje;
     GS::UniString newIdElementaVgradnje;
+    GS::UniString oldIdKonstrukcije;
+    GS::UniString newIdKonstrukcije;
     bool hasChanges;
     bool hadObsegField;
     bool hadSteviloField;
@@ -36,14 +38,16 @@ struct ChangeReport {
     bool hadDelezOkvirjaField;
     bool hadDolzinaSteklaField;
     bool hadIdElementaVgradnjeField;
-    
+    bool hadIdKonstrukcijeField;
+
     ChangeReport() : isTransparent(false), oldPovrsina(0.0), newPovrsina(0.0),
                     oldObseg(0.0), newObseg(0.0),
                     oldStevilo(0), newStevilo(0), hasChanges(false),
                     hadObsegField(false),
                     hadSteviloField(false), hadOrientacijaField(false),
                     hadNaklonField(false), hadDelezOkvirjaField(false),
-                    hadDolzinaSteklaField(false), hadIdElementaVgradnjeField(false) {}
+                    hadDolzinaSteklaField(false), hadIdElementaVgradnjeField(false),
+                    hadIdKonstrukcijeField(false) {}
 };
 
 // Update JSON with morph data - existing entries
